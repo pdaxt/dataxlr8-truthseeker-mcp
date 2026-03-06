@@ -240,15 +240,16 @@ async fn run_cmd(cmd: &str, args: &[&str]) -> (bool, String, String) {
 
 /// Check GitHub repo info via gh CLI
 async fn check_github_repo(repo: &str) -> (bool, bool, bool) {
-    // exists?
-    let (exists, _, _) = run_cmd("gh", &["repo", "view", &format!("{GITHUB_ORG}/{repo}"), "--json", "name"]).await;
+    // exists + default branch?
+    let (exists, repo_info, _) = run_cmd("gh", &["repo", "view", &format!("{GITHUB_ORG}/{repo}"), "--json", "name,defaultBranchRef", "--jq", ".defaultBranchRef.name"]).await;
+    let default_branch = if repo_info.trim().is_empty() { "master".to_string() } else { repo_info.trim().to_string() };
 
     // README?
     let (has_readme, _, _) = run_cmd("gh", &["api", &format!("repos/{GITHUB_ORG}/{repo}/contents/README.md"), "--jq", ".size"]).await;
 
-    // Branch protection?
-    let (_, bp_out, _) = run_cmd("gh", &["api", &format!("repos/{GITHUB_ORG}/{repo}/branches/master/protection"), "--jq", ".required_pull_request_reviews.required_approving_review_count"]).await;
-    let has_protection = bp_out.trim().parse::<i32>().unwrap_or(0) > 0;
+    // Branch protection? Check if protection exists at all (not just PR reviews)
+    let (bp_exists, bp_out, _) = run_cmd("gh", &["api", &format!("repos/{GITHUB_ORG}/{repo}/branches/{default_branch}/protection"), "--jq", ".url"]).await;
+    let has_protection = bp_exists && !bp_out.trim().is_empty();
 
     (exists, has_readme, has_protection)
 }
@@ -478,7 +479,7 @@ impl TruthSeekerServer {
         if let Ok(entries) = std::fs::read_dir(MCP_BASE_DIR) {
             for entry in entries.flatten() {
                 let name = entry.file_name().to_string_lossy().to_string();
-                if name.starts_with("dataxlr8-") && name.ends_with("-mcp") && name != "dataxlr8-contacts-mcp" {
+                if name.starts_with("dataxlr8-") && name.ends_with("-mcp") {
                     if entry.path().join("Cargo.toml").exists() {
                         repos.push(name);
                     }
