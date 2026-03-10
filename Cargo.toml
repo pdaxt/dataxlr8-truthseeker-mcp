@@ -5,6 +5,10 @@ edition = "2024"
 description = "Truth validation MCP server for DataXLR8 platform — cross-checks claims, data, and repos against ground truth"
 repository = "https://github.com/pdaxt/dataxlr8-truthseeker-mcp"
 
+
+[lib]
+name = "dataxlr8_truthseeker_mcp"
+path = "src/lib.rs"
 [dependencies]
 # MCP SDK
 rmcp = { version = "0.17", features = ["server", "transport-io"] }
